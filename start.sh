@@ -1,0 +1,4 @@
+export TOKEN_HEADER="d839552700ad004d4e968844eb85bcb5080214b5"
+export TOKEN_TRAILER="406a0d1827cfd86e73e71ad6801a12b6933e2bff"
+
+python app/run.py
