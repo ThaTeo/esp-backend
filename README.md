@@ -10,6 +10,7 @@ This will allow the board to authenticate itself to the server, matching if its 
 The signature will contain a mix of hash keys and sent by the POST request according to specific policies. \
 The same policies will be applied by the board to allow the request to be accepted. \
 \
+Missing any of the requirements above will result in response with code `403`
 *For exammple on this repo the policies are  `<header> + time + <trailer>`. This of course works just as an exaple and in the final project both the policies and the hashes will be different*
 # Application Stack
 ## [Frontend](https://github.com/ThaTeo/scudo-reloaded-frontend)
