@@ -6,13 +6,62 @@ from db import get_firestore
 from time import time
 from flask_cors import CORS,cross_origin
 
+class BoardsCache:
+    def __init__(self,boards=[],last_update=0) -> None:
+        self.boards=boards
+        self.last_update=last_update
+
+class HistoryCache:
+    def __init__(self) -> None:
+        self.records={}
+    def add_record(self,name,data) -> None:
+        try:
+            if as_hours(data["time"]) == as_hours(self.records[name]["time"]):
+                self.records[name]["temperature"] = round(((self.records[name]["counter"] * self.records[name]["temperature"]) + data["temperature"]) / self.records[name]["counter"]+1,2)
+                self.records[name]["humidity"] = round(((self.records[name]["counter"] * self.records[name]["humidity"]) + data["humidity"]) / self.records[name]["counter"]+1,2)
+                self.records[name]["light"] = round(((self.records[name]["counter"] * self.records[name]["light"]) + data["light"]) / self.records[name]["counter"]+1,2)
+                self.records[name]["time"] = as_hours(data["time"])
+                self.records[name]["counter"]+=1
+                return
+            db.collection(u'{}'.format(name)) \
+                .document(u'{}'.format(as_hours(self.records['time']))) \
+                .set({
+                    "temperature": self.records[name]["temperature"],
+                    "humidity": self.records[name]["humidity"],
+                    "light": self.records[name]["light"],
+                    "counter": self.records[name]["counter"]
+                })
+            ###
+            self.records[name]=data
+            self.records[name]["counter"]=1
+        except:
+            self.records[name]={}
+            self.records[name]["temperature"] = round(data["temperature"],2)
+            self.records[name]["humidity"] = round(data["humidity"],2)
+            self.records[name]["light"] = round(data["light"],2)
+            self.records[name]["time"] = as_hours(data["time"])
+            self.records[name]["counter"] = 1
+            
+            return
+        
+        
+
+boardsCache=BoardsCache()
+historyCache=HistoryCache()
 
 def get_boards_list():
     return_list=[]
+
+    if time()-600<boardsCache.last_update:
+        return boardsCache.boards
+    
     for board in db.collections():
         if board.id != 'accepted':
             return_list.append(board.id)
+
+    boardsCache.boards=return_list
     return return_list
+    
 
 db=get_firestore()
 
@@ -33,7 +82,6 @@ def post():
         json_payload['time']/2
     except:
         flask.abort(400)
-
     try:
         token = (flask.request.headers['Authorization']).split(' ')[1]
         name = jwt.decode(
@@ -53,27 +101,9 @@ def post():
                 'light': round(json_payload['light'],2),
                 'time': json_payload['time']
             })
-        reference=db.collection(u'{}'.format(name)) \
-            .document(u'{}'.format(as_hours(json_payload['time']))) 
         
-        doc=reference.get()
-
-        if doc.exists:
-            prev=doc.to_dict()
-            reference.set({
-                    'temperature':round((prev['temperature'] * prev['counter'] + json_payload['temperature']) / (prev['counter'] + 1), 2),
-                    'humidity':round((prev['humidity'] * prev['counter'] + json_payload['humidity']) / (prev['counter'] + 1), 2),
-                    'light':round((prev['light'] * prev['counter'] + json_payload['light']) / (prev['counter'] + 1), 2),
-                    'counter':prev['counter'] + 1
-                })
-        else:
-            reference.set({
-                    'temperature': round(json_payload['temperature'],2),
-                    'humidity': round(json_payload['humidity'],2),
-                    'light': round(json_payload['light'],2),
-                    'counter': 1
-                })
-
+        historyCache.add_record(name,json_payload)
+        app.logger.error(historyCache.records)
         return {'success' : 'true'}
     flask.abort(403)
 

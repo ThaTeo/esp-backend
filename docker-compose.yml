@@ -1,20 +1,8 @@
-
-networks:
-  web:
-    external: true
-
-
-
 services:
   esp:
     build: .
-    command: "sh ./start.sh" 
-    networks:
-      - web
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.esp.rule=Host(`api.scudoreloaded.it`)
-      - traefik.http.routers.esp.tls.certresolver=lets-encrypt
-      - traefik.http.services.esp.loadbalancer.server.port=5000
+    ports:
+      - 5000:5000
+    command: "sh ./start.sh"
     volumes:
       - ./:/usr/src/app
